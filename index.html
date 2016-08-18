@@ -18,7 +18,8 @@
 			var util = require('util');
 			var EventEmitter = require('events').EventEmitter, 
 					ev = new EventEmitter;
-			var CSV = require("comma-separated-values");
+			var csv = require('ya-csv');
+			var Flatten = require('flatten');
 
 			var depthWidth = 512, depthHeight = 424;
 			var renderer, camera, scene, controls;
@@ -142,11 +143,30 @@
 				particles.colorsNeedUpdate = true;
 				processing = false;
 			}
-			
+
+			function sequencer (timeCord) {
+				if (timeCord[frameCount]) {
+					var timeStamp = timeCord[frameCount + 1] - timeCord[frameCount];
+					setTimeout( function () {
+						depthDraw(
+							dataDepth.slice(frameCount * depth1Frame, frameCount * depth1Frame + depth1Frame),
+							colorDepth.slice(frameCount * color1Frame, frameCount * color1Frame + color1Frame)
+						);
+						frameCount += 1;
+						
+						sequencer (timeCord);
+
+					}, timeStamp);
+				
+				} else {
+					return false;
+				}
+			}
 
 			var depthRead = fs.createReadStream('depth.bin'),
 					colorRead = fs.createReadStream('color.bin'),
-					timeRead	= fs.createReadStream('timestamp.csv');
+					timeRead = csv.createCsvFileReader('timestamp.csv');
+					
 			depthRead.setEncoding('ascii');
 			colorRead.setEncoding('ascii');
 
@@ -159,16 +179,10 @@
 					dataColorBuffer = [],
 					dataDepth = [],
 					dataColor = [];
-			var timestamp;
+			var timeCord = [];
 
 			ev.once('datadone', function () {
-				setInterval( function () {
-					depthDraw(
-						dataDepth.slice(frameCount * depth1Frame, frameCount * depth1Frame + depth1Frame),
-						colorDepth.slice(frameCount * color1Frame, frameCount * color1Frame + color1Frame)
-					);
-					frameCount += 1;
-				}, 1000); 
+				sequencer (timeCord)
 			});
 
 
@@ -206,9 +220,13 @@
 			  }
 			});
 
+			
 			timeRead.on('data', function(chunk) {
-				var timestamp = new CSV(chunk, { header: true }).parse();
+				timeCord.push(chunk);
+			}).on("end", function () {
+					timeCord = Flatten(timeCord);
 			});
+
 
 
 			/* UI controller */
