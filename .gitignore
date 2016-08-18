@@ -5,3 +5,7 @@ shared/
 js/
 
 depth.bin
+
+color.bin
+
+timestamp.csv

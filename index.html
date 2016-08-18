@@ -16,8 +16,9 @@
 		<script>
 		(function() {
 			var util = require('util');
-			var EventEmitter = require('events').EventEmitter;
-			var ev = new EventEmitter;
+			var EventEmitter = require('events').EventEmitter, 
+					ev = new EventEmitter;
+			var CSV = require("comma-separated-values");
 
 			var depthWidth = 512, depthHeight = 424;
 			var renderer, camera, scene, controls;
@@ -117,9 +118,9 @@
 			//   }
 			// }, 1) 
 			
-			function depthDraw(data) {
+			function depthDraw(data, color) {
 				var depthBuffer = data;
-				// var depthColorBuffer = frame.depthColor.buffer;
+				var depthColorBuffer = color;
 				if(processing) {
 					return;
 				}
@@ -133,55 +134,81 @@
 					var depth = (depthBuffer[i+1] << 8) + depthBuffer[i]; //get uint16 data from buffer
 					if(depth <= nDepthMinReliableDistance || depth >= nDepthMaxDistance) depth = Number.MAX_VALUE; //push them far far away so we don't see them
 					particles.vertices[j].z = (nDepthMaxDistance - depth) - 2000;
-					// particles.colors[j].setRGB(depthColorBuffer[k] / 255, depthColorBuffer[k+1] / 255, depthColorBuffer[k+2] / 255);
+					particles.colors[j].setRGB(depthColorBuffer[k] / 255, depthColorBuffer[k+1] / 255, depthColorBuffer[k+2] / 255);
 					j++;
 					k+= 4;
 				}
 				particles.verticesNeedUpdate = true;
-				// particles.colorsNeedUpdate = true;
+				particles.colorsNeedUpdate = true;
 				processing = false;
 			}
 			
 
-			var readable = fs.createReadStream('depth.bin');
-			readable.setEncoding('ascii');
+			var depthRead = fs.createReadStream('depth.bin'),
+					colorRead = fs.createReadStream('color.bin'),
+					timeRead	= fs.createReadStream('timestamp.csv');
+			depthRead.setEncoding('ascii');
+			colorRead.setEncoding('ascii');
+
 			var depth1Frame = 434176,
+					color1Frame = depth1Frame * 2,
 					fps	= 30,
-					bufferSec = 5;
+					bufferSec = 5,
 					frameCount = 0;
-			var dataDepthBuffer = [];
-			var dataDepth = [];
+			var dataDepthBuffer = [],
+					dataColorBuffer = [],
+					dataDepth = [],
+					dataColor = [];
+			var timestamp;
 
 			ev.once('datadone', function () {
 				setInterval( function () {
-					depthDraw(dataDepth.slice(frameCount * depth1Frame, frameCount * depth1Frame + depth1Frame));
+					depthDraw(
+						dataDepth.slice(frameCount * depth1Frame, frameCount * depth1Frame + depth1Frame),
+						colorDepth.slice(frameCount * color1Frame, frameCount * color1Frame + color1Frame)
+					);
 					frameCount += 1;
 				}, 1000); 
 			});
 
 
-			// var readable = getReadableStreamSomehow();
-			// readable.on('data', function(chunk) {
+			// var depthRead = getdepthReadStreamSomehow();
+			// depthRead.on('data', function(chunk) {
 			//   console.log('got %d bytes of data', chunk.length);
-			//   readable.pause();
+			//   depthRead.pause();
 			//   console.log('there will be no more data for 1 second');
 			//   setTimeout(function() {
 			//     console.log('now data will start flowing again');
-			//     readable.resume();
+			//     depthRead.resume();
 			//   }, 1000);
 			// })
 
 			// ここはすべてのデータが回収できるまでループし続ける
-			readable.on('data', function(chunk) {
+			depthRead.on('data', function(chunk) {
 				// console.log(chunk.length)	
 				dataDepthBuffer += chunk;
 			  if (dataDepthBuffer.length > depth1Frame * fps * bufferSec) {
-			  	readable.pause();
-			  	console.log("stop!")
+			  	depthRead.pause();
+			  	console.log("depth_stop!")
 			  	dataDepth = new Buffer(dataDepthBuffer)
+			  	// ev.emit('datadone'); // CHECK: ここcolorの情報とともにasyncはらないとやばい
+			  }
+			});
+
+			colorRead.on('data', function(chunk) {
+				// console.log(chunk.length)	
+				dataColorBuffer += chunk;
+			  if (dataColorBuffer.length > color1Frame * fps * bufferSec) {
+			  	colorRead.pause();
+			  	console.log("color_stop!")
+			  	colorDepth = new Buffer(dataColorBuffer)
 			  	ev.emit('datadone');
 			  }
-			})
+			});
+
+			timeRead.on('data', function(chunk) {
+				var timestamp = new CSV(chunk, { header: true }).parse();
+			});
 
 
 			/* UI controller */
