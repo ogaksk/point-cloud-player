@@ -4,7 +4,6 @@ const BrowserWindow = electron.BrowserWindow;
 let mainWindow;
 
 var log = require('electron-log');
-log.info('Hello, log');
 
 // const exec = require('child_process').exec;
 // exec('node server.js', function(err, stdout, stderr){

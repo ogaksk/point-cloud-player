@@ -102,22 +102,6 @@
 					wstream.write(new Buffer(depth, 'ascii'));
 				}
 			}
-
-			// setInterval( function() {
-			//   if (data[nextFrame.index]) {
-			//     nextFrame.sec = data[nextFrame.index].timestamp - startTime;
-			//     if (nextFrame.sec == frame) {
-			//       io.sockets.emit('bodyFrame', data[nextFrame.index]);
-			//       nextFrame.index += 1; 
-			//     } else if (data[nextFrame.index].timestamp == data[nextFrame.index - 1].timestamp) {
-			//       nextFrame.index += 1; 
-			//     }
-			//     frame ++ ;
-			//   } else {
-			//     frame = 0;
-			//     nextFrame = {index: 0, sec: 0};
-			//   }
-			// }, 1) 
 			
 			function depthDraw(data, color) {
 				var depthBuffer = data;
@@ -147,6 +131,7 @@
 			function sequencer (timeCord) {
 				if (timeCord[frameCount]) {
 					var timeStamp = timeCord[frameCount + 1] - timeCord[frameCount];
+					console.log(timeStamp)
 					setTimeout( function () {
 						depthDraw(
 							dataDepth.slice(frameCount * depth1Frame, frameCount * depth1Frame + depth1Frame),
@@ -159,6 +144,7 @@
 					}, timeStamp);
 				
 				} else {
+					console.log("all sequence has done...")
 					return false;
 				}
 			}
@@ -172,7 +158,7 @@
 
 			var depth1Frame = 434176,
 					color1Frame = depth1Frame * 2,
-					fps	= 30,
+					fps	= 60,
 					bufferSec = 5,
 					frameCount = 0;
 			var dataDepthBuffer = [],
